@@ -1,0 +1,33 @@
+{
+  "users": [
+    {
+      "id": "813760f3-4c0f-4a69-90e1-eb3da8524ab2",
+      "username": "admin",
+      "password": "$2a$10$aisSL5stwhXpaMqMMbahP.anG4Cpv.oC5tgqU5TGFdz0Q.cCiC0Ve",
+      "role": "admin",
+      "createdAt": "2025-10-18T13:24:27.750Z"
+    }
+  ],
+  "items": [
+    {
+      "id": "b0408758-626c-4498-a063-3746c8fc1c43",
+      "price": 100,
+      "name": "Contoh Item",
+      "createdAt": "2025-10-18T13:36:09.962Z"
+    },
+    {
+      "id": 1,
+      "price": 50000,
+      "name": "Barang A",
+      "createdAt": "2025-10-18T16:09:32.796Z"
+    }
+  ],
+  "customers": [],
+  "students": [],
+  "meta": {
+    "nextUserId": 1,
+    "nextItemId": 2,
+    "nextCustomerId": 1,
+    "nextStudentId": 1
+  }
+}

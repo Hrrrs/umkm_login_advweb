@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "nextUserId": 2,
+    "nextItemId": 1,
+    "nextCustomerId": 1,
+    "nextStudentId": 1
+  },
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "$2a$10$k67dV77MAP0zan.EM7bcbewypWTjHgtkC1RYXrHRrR.dpAGoshMPu",
+      "role": "admin",
+      "createdAt": "2025-10-18T17:04:22.070Z"
+    }
+  ],
+  "items": [],
+  "customers": [],
+  "students": []
+}

@@ -1,0 +1,28 @@
+Create a prototype of the PKM (Community Service) website project that was planned at the beginning
+of the meeting using NodeJS with at least the following modules and criteria.:
+1. Modul Login
+2. Main Menu Modul
+3. Modul Master (ex: master items, master customer, master students, etc)
+4. Modul Report
+5. Database usage (mysql or JSON)
+
+In the login module, there must be the following criteria:
+a. There is a validation check for the username and password that must be filled in.
+b. There is information if the login fails, but if the login is successful, you will be redirected to the main
+menu.
+
+In the Main Menu module, there must be the following criteria:
+a. The main menu will only display menus that correspond to the user's role (if any).
+b. The main menu will display at least "user name," "menu list," and "signout." 
+
+Master Module, must have the following criteria:
+a. Must be able to save data to a database (JSON or MySQL) - Create
+b. Must be able to read or display data from a database (JSON or MySQL) - Read
+c. Must be able to update (edit) data to a database (JSON or MySQL) - Update
+d. Must be able to delete data from a database (JSON or MySQL) - Delete 
+
+Using a database, there must be several of the following criteria:
+a. Each table must have a primary key.
+b. Each table must have an "id" field of type "Auto Increment."
+c. At a minimum, your database or tables should have a "user" table for login and one "master" table
+(e.g., ms_customer or ms_student, etc.) 
