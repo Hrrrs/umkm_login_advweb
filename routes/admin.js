@@ -4,7 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const mysql = require('../lib/mysql');
 
 router.get('/admin', requireAuth, async (req, res) => {
-  const user = await mysql.getUserById(req.session.userId);
+  const user = await mysql.getUserById(req.user.id);
   if (!user || user.role !== 'admin') return res.status(403).type('html').send('<p>Forbidden</p>');
   res.type('html').send(`
     <!doctype html>
