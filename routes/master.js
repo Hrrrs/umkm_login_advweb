@@ -9,7 +9,8 @@ const VALID = ['items', 'customers', 'students'];
 router.get('/api/master/:col', requireAuth, async (req, res) => {
   const col = req.params.col;
   if (!VALID.includes(col)) return res.status(400).json({ error: 'Invalid collection' });
-  const rows = await mysql.listCollection(col);
+  const q = (req.query.q || '').trim();
+  const rows = q ? await mysql.searchCollection(col, q) : await mysql.listCollection(col);
   res.json(rows || []);
 });
 

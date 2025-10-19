@@ -3,80 +3,347 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const mysql = require('../lib/mysql');
-// This application now requires MySQL. Fail fast if not enabled.
-if (!mysql.mysqlEnabled()) {
-  console.warn('Warning: MYSQL_ENABLED is not set. Auth routes require MySQL. Set MYSQL_ENABLED=1 to enable MySQL.');
-}
+const {
+  validateUsername,
+  validatePassword,
+  validateRole,
+  validateId,
+  sanitizeUser,
+  successResponse,
+  errorResponse,
+  validationErrorResponse
+} = require('../lib/validation');
 
-// POST /login
+// ==================== LOGIN ====================
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
-  if (!mysql.mysqlEnabled()) return res.status(500).json({ error: 'MySQL not enabled on server' });
-  const user = await mysql.findUserByUsername(username);
-  if (!user) return res.status(401).json({ error: 'Login failed: invalid username or password' });
-  const ok = await bcrypt.compare(String(password), String(user.password));
-  if (!ok) return res.status(401).json({ error: 'Login failed: invalid username or password' });
-  req.session.userId = user.id;
-  const accept = (req.headers && req.headers.accept) || '';
-  const contentType = (req.headers && req.headers['content-type']) || '';
-  const wantsHtml = accept.includes('text/html') || contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data');
-  if (wantsHtml) return res.redirect('/menu');
-  return res.json({ message: 'Logged in', user: { id: user.id, username: user.username, role: user.role }, redirect: '/menu' });
+  try {
+    const { username, password } = req.body || {};
+    console.log('🔐 Login attempt:', { username, passwordLength: password?.length });
+
+    // Determine if this is an HTML form submission
+    const accept0 = req.headers.accept || '';
+    const contentType0 = req.headers['content-type'] || '';
+    const wantsHtml0 =
+      accept0.includes('text/html') ||
+      contentType0.includes('application/x-www-form-urlencoded') ||
+      contentType0.includes('multipart/form-data');
+
+    // Validate username
+    const usernameCheck = validateUsername(username);
+    console.log('   Username validation:', usernameCheck);
+    if (!usernameCheck.valid) {
+      if (wantsHtml0) return res.redirect('/?error=' + encodeURIComponent(usernameCheck.error));
+      return res.status(400).json(validationErrorResponse(usernameCheck.error));
+    }
+
+    // Validate password
+    const passwordCheck = validatePassword(password, { minLength: 1 });
+    console.log('   Password validation:', passwordCheck);
+    if (!passwordCheck.valid) {
+      if (wantsHtml0) return res.redirect('/?error=' + encodeURIComponent(passwordCheck.error));
+      return res.status(400).json(validationErrorResponse(passwordCheck.error));
+    }
+
+    // Check MySQL availability
+    if (!mysql.mysqlEnabled()) {
+      if (wantsHtml0) return res.redirect('/?error=' + encodeURIComponent('Database is not configured'));
+      return res.status(503).json(
+        errorResponse('Service unavailable', 'Database is not configured')
+      );
+    }
+
+    // Find user
+    const user = await mysql.findUserByUsername(usernameCheck.value || username);
+    console.log('   User found:', user ? 'YES' : 'NO');
+    if (!user) {
+      if (wantsHtml0) return res.redirect('/?error=' + encodeURIComponent('Invalid username or password'));
+      return res.status(401).json(
+        errorResponse('Authentication failed', 'Invalid username or password')
+      );
+    }
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(String(password), String(user.password));
+    console.log('   Password match:', passwordMatch);
+    if (!passwordMatch) {
+      if (wantsHtml0) return res.redirect('/?error=' + encodeURIComponent('Invalid username or password'));
+      return res.status(401).json(
+        errorResponse('Authentication failed', 'Invalid username or password')
+      );
+    }
+
+    // Create session
+    req.session.userId = user.id;
+    
+    // Determine response format
+    const accept = req.headers.accept || '';
+    const contentType = req.headers['content-type'] || '';
+    const wantsHtml = 
+      accept.includes('text/html') || 
+      contentType.includes('application/x-www-form-urlencoded') || 
+      contentType.includes('multipart/form-data');
+
+    // Save session before responding
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json(
+          errorResponse('Session error', 'Failed to create session')
+        );
+      }
+
+      // HTML form submission - redirect
+      if (wantsHtml) {
+        return res.redirect('/menu');
+      }
+
+      // JSON API response
+      return res.json(
+        successResponse(
+          { user: sanitizeUser(user), redirect: '/menu' },
+          'Login successful'
+        )
+      );
+    });
+
+  } catch (err) {
+    console.error('Login error:', err.message);
+    return res.status(500).json(
+      errorResponse(
+        'Internal server error',
+        'An error occurred during login',
+        { details: process.env.NODE_ENV === 'development' ? err.message : undefined }
+      )
+    );
+  }
 });
 
+// ==================== LOGOUT ====================
 router.get('/logout', (req, res) => {
-  req.session.destroy(() => res.json({ message: 'Logged out' }));
+  if (!req.session || !req.session.userId) {
+    return res.json(
+      successResponse({ redirect: '/' }, 'Already logged out')
+    );
+  }
+
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json(
+        errorResponse('Logout failed', 'Failed to destroy session')
+      );
+    }
+
+    res.clearCookie('connect.sid');
+
+    const accept = req.headers.accept || '';
+    if (accept.includes('text/html')) {
+      return res.redirect('/');
+    }
+
+    return res.json(
+      successResponse({ redirect: '/' }, 'Logged out successfully')
+    );
+  });
 });
 
-// Admin-only user management
-// POST /register (admin creates users)
+// ==================== REGISTER (Admin only) ====================
 router.post('/register', requireAuth, async (req, res) => {
-  if (!mysql.mysqlEnabled()) return res.status(500).json({ error: 'MySQL not enabled' });
-  const current = await mysql.getUserById(req.session.userId);
-  if (!current || current.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-  const { username, password, role } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: 'username and password required' });
-  const existing = await mysql.findUserByUsername(username);
-  if (existing) return res.status(409).json({ error: 'username exists' });
-  const hash = await bcrypt.hash(password, 10);
-  const created = await mysql.createUser({ username, password: hash, role });
-  return res.status(201).json(created);
+  try {
+    // Check MySQL availability
+    if (!mysql.mysqlEnabled()) {
+      return res.status(503).json(
+        errorResponse('Service unavailable', 'Database is not configured')
+      );
+    }
+
+    // Check if requester is admin
+    const currentUser = await mysql.getUserById(req.session.userId);
+    if (!currentUser || currentUser.role !== 'admin') {
+      return res.status(403).json(
+        errorResponse('Forbidden', 'Only administrators can create users')
+      );
+    }
+
+    const { username, password, role } = req.body || {};
+
+    // Validate username
+    const usernameCheck = validateUsername(username);
+    if (!usernameCheck.valid) {
+      return res.status(400).json(validationErrorResponse(usernameCheck.error));
+    }
+
+    // Validate password
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      return res.status(400).json(validationErrorResponse(passwordCheck.error));
+    }
+
+    // Validate role
+    const roleCheck = validateRole(role);
+    if (!roleCheck.valid) {
+      return res.status(400).json(validationErrorResponse(roleCheck.error));
+    }
+
+    // Check if username already exists
+    const existing = await mysql.findUserByUsername(usernameCheck.value || username);
+    if (existing) {
+      return res.status(409).json(
+        errorResponse('Conflict', 'Username already exists')
+      );
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = await mysql.createUser({
+      username: usernameCheck.value || username,
+      password: hashedPassword,
+      role: roleCheck.role
+    });
+
+    return res.status(201).json(
+      successResponse(
+        { user: sanitizeUser(newUser) },
+        'User created successfully'
+      )
+    );
+
+  } catch (err) {
+    console.error('Register error:', err.message);
+    
+    if (err.message && err.message.includes('already exists')) {
+      return res.status(409).json(
+        errorResponse('Conflict', 'Username already exists')
+      );
+    }
+
+    return res.status(500).json(
+      errorResponse(
+        'Internal server error',
+        'Failed to create user',
+        { details: process.env.NODE_ENV === 'development' ? err.message : undefined }
+      )
+    );
+  }
 });
 
-// GET /api/users
+// ==================== LIST USERS (Admin only) ====================
 router.get('/api/users', requireAuth, async (req, res) => {
-  if (!mysql.mysqlEnabled()) return res.status(500).json({ error: 'MySQL not enabled' });
-  const current = await mysql.getUserById(req.session.userId);
-  if (!current || current.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-  const rows = await mysql.listUsers();
-  return res.json(rows);
+  try {
+    if (!mysql.mysqlEnabled()) {
+      return res.status(503).json(
+        errorResponse('Service unavailable', 'Database is not configured')
+      );
+    }
+
+    const currentUser = await mysql.getUserById(req.session.userId);
+    if (!currentUser || currentUser.role !== 'admin') {
+      return res.status(403).json(
+        errorResponse('Forbidden', 'Only administrators can list users')
+      );
+    }
+
+    const users = await mysql.listUsers();
+    
+    return res.json(
+      successResponse(
+        { 
+          count: users.length,
+          users: users.map(sanitizeUser) 
+        },
+        'Users retrieved successfully'
+      )
+    );
+
+  } catch (err) {
+    console.error('List users error:', err.message);
+    return res.status(500).json(
+      errorResponse(
+        'Internal server error',
+        'Failed to retrieve users',
+        { details: process.env.NODE_ENV === 'development' ? err.message : undefined }
+      )
+    );
+  }
 });
 
-// PUT /api/users/:id
+// ==================== UPDATE USER (Admin only) ====================
 router.put('/api/users/:id', requireAuth, async (req, res) => {
-  if (!mysql.mysqlEnabled()) return res.status(500).json({ error: 'MySQL not enabled' });
-  const current = await mysql.getUserById(req.session.userId);
-  if (!current || current.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-  const id = req.params.id;
-  const changes = {};
-  if (req.body.password) changes.password = await bcrypt.hash(req.body.password, 10);
-  if (req.body.role) changes.role = req.body.role;
-  const user = await mysql.updateUser(id, changes);
-  if (!user) return res.status(404).json({ error: 'Not found' });
-  return res.json({ id: user.id, username: user.username, role: user.role });
-});
+  try {
+    if (!mysql.mysqlEnabled()) {
+      return res.status(503).json(
+        errorResponse('Service unavailable', 'Database is not configured')
+      );
+    }
 
-// DELETE /api/users/:id
-router.delete('/api/users/:id', requireAuth, async (req, res) => {
-  if (!mysql.mysqlEnabled()) return res.status(500).json({ error: 'MySQL not enabled' });
-  const current = await mysql.getUserById(req.session.userId);
-  if (!current || current.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-  const id = req.params.id;
-  const removed = await mysql.deleteUser(id);
-  if (!removed) return res.status(404).json({ error: 'Not found' });
-  return res.json({ removed });
+    const currentUser = await mysql.getUserById(req.session.userId);
+    if (!currentUser || currentUser.role !== 'admin') {
+      return res.status(403).json(
+        errorResponse('Forbidden', 'Only administrators can update users')
+      );
+    }
+
+    // Validate ID
+    const idCheck = validateId(req.params.id);
+    if (!idCheck.valid) {
+      return res.status(400).json(validationErrorResponse(idCheck.error));
+    }
+
+    const { password, role } = req.body || {};
+    const changes = {};
+
+    // Validate and hash new password if provided
+    if (password) {
+      const passwordCheck = validatePassword(password);
+      if (!passwordCheck.valid) {
+        return res.status(400).json(validationErrorResponse(passwordCheck.error));
+      }
+      changes.password = await bcrypt.hash(password, 10);
+    }
+
+    // Validate role if provided
+    if (role) {
+      const roleCheck = validateRole(role);
+      if (!roleCheck.valid) {
+        return res.status(400).json(validationErrorResponse(roleCheck.error));
+      }
+      changes.role = roleCheck.role;
+    }
+
+    // Check if there are any changes
+    if (Object.keys(changes).length === 0) {
+      return res.status(400).json(
+        validationErrorResponse('No valid fields to update')
+      );
+    }
+
+    // Update user
+    const updatedUser = await mysql.updateUser(idCheck.value, changes);
+    
+    if (!updatedUser) {
+      return res.status(404).json(
+        errorResponse('Not found', 'User not found')
+      );
+    }
+
+    return res.json(
+      successResponse(
+        { user: sanitizeUser (updatedUser) },
+        'User updated successfully'
+      )
+    );
+  } catch (err) {
+    console.error('Update user error:', err.message);
+    return res.status(500).json(
+      errorResponse(
+        'Internal server error',
+        'Failed to update user',
+        { details: process.env.NODE_ENV === 'development' ? err.message : undefined }
+      )
+    );
+  }
 });
 
 module.exports = router;
-

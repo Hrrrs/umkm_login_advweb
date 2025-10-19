@@ -51,7 +51,8 @@ router.get('/admin', requireAuth, async (req, res) => {
         async function loadUsers(){
           const res = await fetch('/api/users');
           if (!res.ok) return document.getElementById('userMsg').innerText = 'Failed to load users';
-          const users = await res.json();
+          const data = await res.json();
+          const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
           const tbody = document.querySelector('#usersTable tbody'); tbody.innerHTML='';
           users.forEach(u=>{
             const tr = document.createElement('tr');
