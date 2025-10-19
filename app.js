@@ -30,9 +30,15 @@ async function ensureInit() {
   if (!initPromise) {
     initPromise = (async () => {
       try {
-        await initDb();
+        // If MySQL is enabled, skip file DB init to avoid slow fs + hashing on serverless
+        const withTimeout = (p, ms) => Promise.race([
+          p,
+          new Promise((_, rej) => setTimeout(() => rej(new Error('init timeout')), ms))
+        ]);
         if (mysql.mysqlEnabled()) {
-          await mysql.init();
+          await withTimeout(mysql.init(), Number(process.env.INIT_TIMEOUT_MS || 6000));
+        } else {
+          await withTimeout(initDb(), Number(process.env.INIT_TIMEOUT_MS || 6000));
         }
         initialized = true;
       } catch (err) {
@@ -64,6 +70,13 @@ app.use('/', customersPages);
 app.use('/', itemsPages);
 app.use('/', reportPages);
 app.use('/', profilePages);
+
+// Very fast endpoints to reduce noise and help diagnose
+app.get('/health', (req, res) => {
+  return res.json({ ok: true, mysqlEnabled: mysql.mysqlEnabled() });
+});
+
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Root/Login page (kept here so app.js is self-contained)
 app.get('/', (req, res) => {

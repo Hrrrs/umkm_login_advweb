@@ -256,25 +256,8 @@ function generateMenuHTML(username, role, menuList) {
 // ==================== ROUTE HANDLER ====================
 router.get('/menu', requireAuth, async (req, res) => {
   try {
-    // Fetch user from MySQL only (no more fallback)
-    if (!mysql.mysqlEnabled()) {
-      return res.status(503).json({
-        error: 'Service unavailable',
-        message: 'Database is not configured'
-      });
-    }
-
-    const user = await mysql.getUserById(req.user.id);
-    
-    if (!user) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Invalid user ID.',
-        redirect: '/'
-      });
-    }
-
-    const { username, role } = user;
+    // Use JWT payload to render menu, avoid DB hit
+    const { id, username, role } = req.user;
     const menuList = getMenuByRole(role);
 
     // Check if client wants HTML or JSON
@@ -287,7 +270,7 @@ router.get('/menu', requireAuth, async (req, res) => {
       return res.json({
         success: true,
         user: {
-          id: user.id,
+          id,
           username,
           role
         },
