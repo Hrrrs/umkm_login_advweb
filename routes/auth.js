@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
 const mysql = require('../lib/mysql');
 const {
   validateUsername,
@@ -72,9 +73,6 @@ router.post('/login', async (req, res) => {
       );
     }
 
-    // Create session
-    req.session.userId = user.id;
-    
     // Determine response format
     const accept = req.headers.accept || '';
     const contentType = req.headers['content-type'] || '';
@@ -83,28 +81,29 @@ router.post('/login', async (req, res) => {
       contentType.includes('application/x-www-form-urlencoded') || 
       contentType.includes('multipart/form-data');
 
-    // Save session before responding
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.status(500).json(
-          errorResponse('Session error', 'Failed to create session')
-        );
-      }
-
-      // HTML form submission - redirect
-      if (wantsHtml) {
-        return res.redirect('/menu');
-      }
-
-      // JSON API response
-      return res.json(
-        successResponse(
-          { user: sanitizeUser(user), redirect: '/menu' },
-          'Login successful'
-        )
-      );
+    // Create JWT and set cookie
+    const payload = { uid: user.id, username: user.username, role: user.role };
+    const secret = process.env.JWT_SECRET || 'dev-jwt-secret';
+    const token = jwt.sign(payload, secret, { expiresIn: '30m' });
+    res.cookie('auth', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 1000 * 60 * 30
     });
+
+    // HTML form submission - redirect
+    if (wantsHtml) {
+      return res.redirect('/menu');
+    }
+
+    // JSON API response
+    return res.json(
+      successResponse(
+        { user: sanitizeUser(user), token, redirect: '/menu' },
+        'Login successful'
+      )
+    );
 
   } catch (err) {
     console.error('Login error:', err.message);
@@ -120,31 +119,15 @@ router.post('/login', async (req, res) => {
 
 // ==================== LOGOUT ====================
 router.get('/logout', (req, res) => {
-  if (!req.session || !req.session.userId) {
-    return res.json(
-      successResponse({ redirect: '/' }, 'Already logged out')
-    );
+  // Clear JWT cookie
+  res.clearCookie('auth');
+  const accept = req.headers.accept || '';
+  if (accept.includes('text/html')) {
+    return res.redirect('/');
   }
-
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Logout error:', err);
-      return res.status(500).json(
-        errorResponse('Logout failed', 'Failed to destroy session')
-      );
-    }
-
-    res.clearCookie('connect.sid');
-
-    const accept = req.headers.accept || '';
-    if (accept.includes('text/html')) {
-      return res.redirect('/');
-    }
-
-    return res.json(
-      successResponse({ redirect: '/' }, 'Logged out successfully')
-    );
-  });
+  return res.json(
+    successResponse({ redirect: '/' }, 'Logged out successfully')
+  );
 });
 
 // ==================== REGISTER (Admin only) ====================
@@ -158,7 +141,7 @@ router.post('/register', requireAuth, async (req, res) => {
     }
 
     // Check if requester is admin
-    const currentUser = await mysql.getUserById(req.session.userId);
+    const currentUser = await mysql.getUserById(req.user.id);
     if (!currentUser || currentUser.role !== 'admin') {
       return res.status(403).json(
         errorResponse('Forbidden', 'Only administrators can create users')

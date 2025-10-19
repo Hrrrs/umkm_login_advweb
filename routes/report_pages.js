@@ -9,7 +9,7 @@ router.get('/reports', requireAuth, async (req, res) => {
     if (!mysql.mysqlEnabled()) {
       return res.redirect('/?error=' + encodeURIComponent('Database is not configured'));
     }
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
 
     const summary = await mysql.reportSummary();

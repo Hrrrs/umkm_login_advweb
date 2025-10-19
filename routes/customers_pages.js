@@ -9,7 +9,7 @@ router.get('/customers', requireAuth, async (req, res) => {
     if (!mysql.mysqlEnabled()) {
       return res.redirect('/?error=' + encodeURIComponent('Database is not configured'));
     }
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
 
     const rows = await mysql.listCollection('customers');
@@ -95,7 +95,7 @@ router.post('/customers', requireAuth, async (req, res) => {
   try {
     const { name, contact } = req.body || {};
     if (!name || String(name).trim().length === 0) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>Customer name is required</p><p><a href='/customers/new'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(errHtml);
     }
@@ -103,7 +103,7 @@ router.post('/customers', requireAuth, async (req, res) => {
     return res.redirect('/customers');
   } catch (err) {
     console.error('Customers create error:', err.message);
-    const user = await mysql.getUserById(req.session.userId).catch(() => null);
+    const user = await mysql.getUserById(req.user.id).catch(() => null);
     const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>${err.message || 'Failed to create customer'}</p><p><a href='/customers/new'>Back</a></p></body></html>`;
     return res.status(400).type('html').send(errHtml);
   }
@@ -113,7 +113,7 @@ router.post('/customers', requireAuth, async (req, res) => {
 router.get('/customers/:id/edit', requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
 
     const rows = await mysql.listCollection('customers');
@@ -134,7 +134,7 @@ router.post('/customers/:id', requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     const { name, contact } = req.body || {};
     if (!name || String(name).trim().length === 0) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>Customer name is required</p><p><a href='/customers/${id}/edit'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(errHtml);
     }
@@ -143,7 +143,7 @@ router.post('/customers/:id', requireAuth, async (req, res) => {
     return res.redirect('/customers');
   } catch (err) {
     console.error('Customers update error:', err.message);
-    const user = await mysql.getUserById(req.session.userId).catch(() => null);
+    const user = await mysql.getUserById(req.user.id).catch(() => null);
     const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>${err.message || 'Failed to update customer'}</p><p><a href='/customers/${req.params.id}/edit'>Back</a></p></body></html>`;
     return res.status(400).type('html').send(errHtml);
   }

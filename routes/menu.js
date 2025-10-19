@@ -264,14 +264,12 @@ router.get('/menu', requireAuth, async (req, res) => {
       });
     }
 
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     
     if (!user) {
-      // User not found - session might be stale
-      req.session.destroy();
       return res.status(401).json({
         error: 'Unauthorized',
-        message: 'Session expired. Please login again.',
+        message: 'Invalid user ID.',
         redirect: '/'
       });
     }

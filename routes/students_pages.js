@@ -9,7 +9,7 @@ router.get('/students', requireAuth, async (req, res) => {
     if (!mysql.mysqlEnabled()) {
       return res.redirect('/?error=' + encodeURIComponent('Database is not configured'));
     }
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
 
     const rows = await mysql.listCollection('students');
@@ -95,7 +95,7 @@ router.post('/students', requireAuth, async (req, res) => {
   try {
     const { name, nis } = req.body || {};
     if (!name || String(name).trim().length === 0) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const form = (error, item) => `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>${item ? 'Edit Student' : 'New Student'} - PKM</title></head><body>${error ? `<p style='color:#991b1b'>${error}</p>` : ''}<form method='post' action='/students'><label>Name<input name='name' required /></label><label>NIS<input name='nis' /></label><button type='submit'>Create</button></form><p><a href='/students'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(form('Student name is required', null));
     }
@@ -103,7 +103,7 @@ router.post('/students', requireAuth, async (req, res) => {
     return res.redirect('/students');
   } catch (err) {
     console.error('Students create error:', err.message);
-    const user = await mysql.getUserById(req.session.userId).catch(() => null);
+    const user = await mysql.getUserById(req.user.id).catch(() => null);
     const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>${err.message || 'Failed to create student'}</p><p><a href='/students/new'>Back</a></p></body></html>`;
     return res.status(400).type('html').send(errHtml);
   }
@@ -113,7 +113,7 @@ router.post('/students', requireAuth, async (req, res) => {
 router.get('/students/:id/edit', requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
 
     const rows = await mysql.listCollection('students');
@@ -134,7 +134,7 @@ router.post('/students/:id', requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     const { name, nis } = req.body || {};
     if (!name || String(name).trim().length === 0) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>Student name is required</p><p><a href='/students/${id}/edit'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(errHtml);
     }
@@ -143,7 +143,7 @@ router.post('/students/:id', requireAuth, async (req, res) => {
     return res.redirect('/students');
   } catch (err) {
     console.error('Students update error:', err.message);
-    const user = await mysql.getUserById(req.session.userId).catch(() => null);
+    const user = await mysql.getUserById(req.user.id).catch(() => null);
     const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>${err.message || 'Failed to update student'}</p><p><a href='/students/${req.params.id}/edit'>Back</a></p></body></html>`;
     return res.status(400).type('html').send(errHtml);
   }

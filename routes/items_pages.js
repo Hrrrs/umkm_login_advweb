@@ -9,7 +9,7 @@ router.get('/items', requireAuth, async (req, res) => {
     if (!mysql.mysqlEnabled()) {
       return res.redirect('/?error=' + encodeURIComponent('Database is not configured'));
     }
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
 
     const rows = await mysql.listCollection('items');
@@ -97,12 +97,12 @@ router.post('/items', requireAuth, async (req, res) => {
     const nameTrim = (name || '').trim();
     const priceNum = Number(price);
     if (!nameTrim) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>Item name is required</p><p><a href='/items/new'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(errHtml);
     }
     if (Number.isNaN(priceNum) || priceNum < 0) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>Price must be a non-negative number</p><p><a href='/items/new'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(errHtml);
     }
@@ -110,7 +110,7 @@ router.post('/items', requireAuth, async (req, res) => {
     return res.redirect('/items');
   } catch (err) {
     console.error('Items create error:', err.message);
-    const user = await mysql.getUserById(req.session.userId).catch(() => null);
+    const user = await mysql.getUserById(req.user.id).catch(() => null);
     const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>${err.message || 'Failed to create item'}</p><p><a href='/items/new'>Back</a></p></body></html>`;
     return res.status(400).type('html').send(errHtml);
   }
@@ -120,7 +120,7 @@ router.post('/items', requireAuth, async (req, res) => {
 router.get('/items/:id/edit', requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
 
     const rows = await mysql.listCollection('items');
@@ -143,12 +143,12 @@ router.post('/items/:id', requireAuth, async (req, res) => {
     const nameTrim = (name || '').trim();
     const priceNum = Number(price);
     if (!nameTrim) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>Item name is required</p><p><a href='/items/${id}/edit'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(errHtml);
     }
     if (Number.isNaN(priceNum) || priceNum < 0) {
-      const user = await mysql.getUserById(req.session.userId);
+      const user = await mysql.getUserById(req.user.id);
       const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>Price must be a non-negative number</p><p><a href='/items/${id}/edit'>Back</a></p></body></html>`;
       return res.status(400).type('html').send(errHtml);
     }
@@ -157,7 +157,7 @@ router.post('/items/:id', requireAuth, async (req, res) => {
     return res.redirect('/items');
   } catch (err) {
     console.error('Items update error:', err.message);
-    const user = await mysql.getUserById(req.session.userId).catch(() => null);
+    const user = await mysql.getUserById(req.user.id).catch(() => null);
     const errHtml = `<!doctype html><html><body><p style='color:#991b1b'>${err.message || 'Failed to update item'}</p><p><a href='/items/${req.params.id}/edit'>Back</a></p></body></html>`;
     return res.status(400).type('html').send(errHtml);
   }

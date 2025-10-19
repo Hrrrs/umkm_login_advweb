@@ -1,6 +1,9 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const { initDb } = require('./lib/db');
+const mysql = require('./lib/mysql');
+
+// Routes
 const authRoutes = require('./routes/auth');
 const menuRoutes = require('./routes/menu');
 const masterRoutes = require('./routes/master');
@@ -11,17 +14,44 @@ const customersPages = require('./routes/customers_pages');
 const itemsPages = require('./routes/items_pages');
 const reportPages = require('./routes/report_pages');
 const profilePages = require('./routes/profile_pages');
-const mysql = require('./lib/mysql');
-
-const PORT = process.env.PORT || 3000;
 
 const app = express();
-// parse JSON bodies
+
+// Body parsers
 app.use(express.json());
-// parse HTML form submissions (application/x-www-form-urlencoded)
 app.use(express.urlencoded({ extended: true }));
-// cookies (for JWT auth)
 app.use(cookieParser());
+
+// Ensure DB initialization on cold start/serverless
+let initialized = false;
+let initPromise = null;
+async function ensureInit() {
+  if (initialized) return;
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        await initDb();
+        if (mysql.mysqlEnabled()) {
+          await mysql.init();
+        }
+        initialized = true;
+      } catch (err) {
+        console.error('Initialization error:', err && err.message ? err.message : err);
+        // Do not rethrow to avoid crashing cold start; let routes handle mysqlEnabled checks
+        initialized = true; // prevent endless retries on every request
+      }
+    })();
+  }
+  return initPromise;
+}
+
+// Init gate for each request (no-op after first success)
+app.use(async (req, res, next) => {
+  try {
+    await ensureInit();
+  } catch (_) {}
+  next();
+});
 
 // Mount modular routes
 app.use('/', authRoutes);
@@ -35,10 +65,11 @@ app.use('/', itemsPages);
 app.use('/', reportPages);
 app.use('/', profilePages);
 
+// Root/Login page (kept here so app.js is self-contained)
 app.get('/', (req, res) => {
-        const error = req.query.error || null;
-        const errorHtml = error ? `<div class="error">${error}</div>` : '';
-        return res.type('html').send(`<!doctype html>
+  const error = req.query.error || null;
+  const errorHtml = error ? `<div class="error">${error}</div>` : '';
+  return res.type('html').send(`<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -74,19 +105,4 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// Initialize DB and start server
-(async () => {
-        try {
-                await initDb();
-                if (mysql.mysqlEnabled()) {
-                    // Initialize MySQL in background so server startup isn't blocked by DB connectivity.
-                    mysql.init()
-                        .then(() => console.log('MySQL initialized'))
-                        .catch(err => console.error('MySQL init failed (non-fatal):', err && err.message ? err.message : err));
-                }
-                app.listen(PORT, () => console.log(`PKM prototype running at http://localhost:${PORT}`));
-        } catch (err) {
-                console.error('Failed to initialize DB', err);
-                process.exit(1);
-        }
-})();
+module.exports = app;
