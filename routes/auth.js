@@ -16,7 +16,11 @@ const {
 } = require('../lib/validation');
 
 // ==================== LOGIN ====================
-router.post('/login', async (req, res) => {
+// Route-scoped body parser (urlencoded only) to avoid Content-Length mismatch issues
+router.post(
+  '/login',
+  express.urlencoded({ extended: true, limit: '10kb', type: () => true }),
+  async (req, res) => {
   try {
     const { username, password } = req.body || {};
     console.log('🔐 Login attempt:', { username, passwordLength: password?.length });
@@ -221,7 +225,7 @@ router.get('/api/users', requireAuth, async (req, res) => {
       );
     }
 
-    const currentUser = await mysql.getUserById(req.session.userId);
+    const currentUser = await mysql.getUserById(req.user.id);
     if (!currentUser || currentUser.role !== 'admin') {
       return res.status(403).json(
         errorResponse('Forbidden', 'Only administrators can list users')
@@ -261,7 +265,7 @@ router.put('/api/users/:id', requireAuth, async (req, res) => {
       );
     }
 
-    const currentUser = await mysql.getUserById(req.session.userId);
+    const currentUser = await mysql.getUserById(req.user.id);
     if (!currentUser || currentUser.role !== 'admin') {
       return res.status(403).json(
         errorResponse('Forbidden', 'Only administrators can update users')

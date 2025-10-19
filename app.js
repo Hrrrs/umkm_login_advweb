@@ -17,6 +17,14 @@ const profilePages = require('./routes/profile_pages');
 
 const app = express();
 
+// Workaround for some proxies sending wrong Content-Length to serverless
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.url.startsWith('/login')) {
+    try { delete req.headers['content-length']; } catch (_) {}
+  }
+  next();
+});
+
 // Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -116,6 +124,20 @@ app.get('/', (req, res) => {
     <p class="note">After successful login you will be redirected to <code>/menu</code>.</p>
   </body>
 </html>`);
+});
+
+// ========= Global error handler (handles body-parser BadRequestError) =========
+// This prevents raw-body/content-length mismatch from bubbling as 500/timeout
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  const isBadRequest = err.type === 'entity.parse.failed' || err.status === 400 || /request size did not match content length/i.test(err.message || '');
+  if (isBadRequest) {
+    const accept = req.headers.accept || '';
+    const wantsHtml = accept.includes('text/html') || (req.headers['content-type'] || '').includes('application/x-www-form-urlencoded');
+    if (wantsHtml) return res.redirect('/?error=' + encodeURIComponent('Bad request. Please try again.'));
+    return res.status(400).json({ error: 'Bad Request', message: 'Invalid request body' });
+  }
+  return next(err);
 });
 
 module.exports = app;
