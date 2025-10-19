@@ -73,31 +73,59 @@ MySQL schema
 - Tables are auto-created on first MySQL init by `lib/mysql.js` (`ensureSchema()`).
 - To speed up serverless cold starts you may set `SKIP_SCHEMA_INIT=1` (tables must already exist).
 
-Deployment (Vercel)
+Project structure
 
-This repo is serverless-ready:
+```
+umkm_login_advweb/
+├─ index.js                # main Express entry (listens on PORT)
+├─ lib/
+│  └─ mysql.js             # MySQL pool, schema and CRUD helpers
+├─ middleware/
+│  └─ auth.js              # JWT verification (sets req.user)
+├─ routes/
+│  ├─ auth.js              # /login, /logout, users admin APIs
+│  ├─ admin.js             # Admin panel (users, items, customers, students)
+│  ├─ menu.js              # /menu (uses JWT claims)
+│  ├─ master.js            # REST for items/customers/students
+│  ├─ items_pages.js       # Items pages
+│  ├─ customers_pages.js   # Customers pages
+│  ├─ students_pages.js    # Students pages
+│  ├─ report.js            # Reports API
+│  ├─ report_pages.js      # Reports page
+│  └─ profile_pages.js     # Profile page
+├─ scripts/
+│  ├─ reset_admin.js       # optional utilities
+│  ├─ mysql_migrate.js
+│  └─ debug_login.js
+├─ package.json            # start: node index.js
+└─ README.md
+```
 
-- `app.js` exports the Express app; `api/server.js` exports a serverless handler.
-- `vercel.json` rewrites all routes to the handler.
+Deployment (Railway)
 
-Required environment variables on Vercel:
+This project runs as a standard Node/Express service.
 
-- `MYSQL_ENABLED=1`
-- Either `MYSQL_ADDON_URI=mysql://USER:PASS@HOST:3306/DB`
-  or individual fields: `MYSQL_ADDON_HOST`, `MYSQL_ADDON_PORT`, `MYSQL_ADDON_USER`, `MYSQL_ADDON_PASSWORD`, `MYSQL_ADDON_DB`
-- `JWT_SECRET=<strong random secret>`
-- `NODE_ENV=production`
-
-Recommended (serverless):
-
-- `SKIP_SCHEMA_INIT=1` (skip CREATE TABLE checks on cold start)
-- `MYSQL_POOL_LIMIT=2` (respect low connection caps on managed MySQL)
-- `MYSQL_CONNECT_TIMEOUT_MS=5000`
-- Optionally set your Vercel Functions Region close to your DB region.
+- Install: `npm install`
+- Start: `node index.js` (Railway sets `PORT` automatically)
+- Environment variables (Railway → Variables):
+  - `MYSQL_ENABLED=1`
+  - Either `MYSQL_ADDON_URI=mysql://USER:PASS@HOST:3306/DB`
+    or individual fields: `MYSQL_ADDON_HOST`, `MYSQL_ADDON_PORT`, `MYSQL_ADDON_USER`, `MYSQL_ADDON_PASSWORD`, `MYSQL_ADDON_DB`
+  - `JWT_SECRET=<strong random secret>`
+  - `NODE_ENV=production`
+  - Recommended: `MYSQL_POOL_LIMIT=2`, `MYSQL_CONNECT_TIMEOUT_MS=5000`, `SKIP_SCHEMA_INIT=1`
 
 Notes
 
 - Inline HTML is used for simplicity; no EJS templates.
 - Do not commit secrets. Use environment variables for credentials.
 - Use `curl.exe` on Windows PowerShell to avoid alias conflicts with `Invoke-WebRequest`.
+
+Admin panel
+
+- Visit `/admin` (admin role required) to manage:
+  - Users: create/delete
+  - Items: create/delete
+  - Customers: create/delete
+  - Students: create/delete
 

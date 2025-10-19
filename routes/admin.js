@@ -47,6 +47,28 @@ router.get('/admin', requireAuth, async (req, res) => {
         <table id="itemsTable"><thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Actions</th></tr></thead><tbody></tbody></table>
       </section>
 
+      <section id="customers">
+        <h2>Customers</h2>
+        <form id="customerForm">
+          <input name="name" placeholder="name" required />
+          <input name="contact" placeholder="contact (optional)" />
+          <button type="submit">Create customer</button>
+        </form>
+        <div id="customerMsg"></div>
+        <table id="customersTable"><thead><tr><th>ID</th><th>Name</th><th>Contact</th><th>Actions</th></tr></thead><tbody></tbody></table>
+      </section>
+
+      <section id="students">
+        <h2>Students</h2>
+        <form id="studentForm">
+          <input name="name" placeholder="name" required />
+          <input name="nis" placeholder="NIS (optional)" />
+          <button type="submit">Create student</button>
+        </form>
+        <div id="studentMsg"></div>
+        <table id="studentsTable"><thead><tr><th>ID</th><th>Name</th><th>NIS</th><th>Actions</th></tr></thead><tbody></tbody></table>
+      </section>
+
       <script>
         async function loadUsers(){
           const res = await fetch('/api/users');
@@ -72,6 +94,30 @@ router.get('/admin', requireAuth, async (req, res) => {
           });
         }
 
+        async function loadCustomers(){
+          const res = await fetch('/api/master/customers');
+          if (!res.ok) return document.getElementById('customerMsg').innerText = 'Failed to load customers';
+          const rows = await res.json();
+          const tbody = document.querySelector('#customersTable tbody'); tbody.innerHTML='';
+          rows.forEach(c=>{
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>'+c.id+'</td><td>'+(c.name||'')+'</td><td>'+(c.contact||'-')+'</td><td><button data-id="'+c.id+'" class="delCustomer">Delete</button></td>';
+            tbody.appendChild(tr);
+          });
+        }
+
+        async function loadStudents(){
+          const res = await fetch('/api/master/students');
+          if (!res.ok) return document.getElementById('studentMsg').innerText = 'Failed to load students';
+          const rows = await res.json();
+          const tbody = document.querySelector('#studentsTable tbody'); tbody.innerHTML='';
+          rows.forEach(s=>{
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>'+s.id+'</td><td>'+(s.name||'')+'</td><td>'+(s.nis||'-')+'</td><td><button data-id="'+s.id+'" class="delStudent">Delete</button></td>';
+            tbody.appendChild(tr);
+          });
+        }
+
         document.getElementById('userForm').addEventListener('submit', async e=>{
           e.preventDefault();
           const fd = new FormData(e.target);
@@ -92,6 +138,26 @@ router.get('/admin', requireAuth, async (req, res) => {
           txt.innerText = 'Item created'; e.target.reset(); loadItems();
         });
 
+        document.getElementById('customerForm').addEventListener('submit', async e=>{
+          e.preventDefault();
+          const fd = new FormData(e.target);
+          const body = { name: fd.get('name'), contact: fd.get('contact') };
+          const res = await fetch('/api/master/customers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          const txt = document.getElementById('customerMsg');
+          if (!res.ok) { txt.innerText = 'Create customer failed'; return; }
+          txt.innerText = 'Customer created'; e.target.reset(); loadCustomers();
+        });
+
+        document.getElementById('studentForm').addEventListener('submit', async e=>{
+          e.preventDefault();
+          const fd = new FormData(e.target);
+          const body = { name: fd.get('name'), nis: fd.get('nis') };
+          const res = await fetch('/api/master/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          const txt = document.getElementById('studentMsg');
+          if (!res.ok) { txt.innerText = 'Create student failed'; return; }
+          txt.innerText = 'Student created'; e.target.reset(); loadStudents();
+        });
+
         document.addEventListener('click', async e=>{
           if (e.target.classList.contains('delUser')){
             const id = e.target.dataset.id;
@@ -105,10 +171,22 @@ router.get('/admin', requireAuth, async (req, res) => {
             const res = await fetch('/api/master/items/'+id, { method:'DELETE' });
             if (res.ok) loadItems();
           }
+          if (e.target.classList.contains('delCustomer')){
+            const id = e.target.dataset.id;
+            if (!confirm('Delete customer '+id+'?')) return;
+            const res = await fetch('/api/master/customers/'+id, { method:'DELETE' });
+            if (res.ok) loadCustomers();
+          }
+          if (e.target.classList.contains('delStudent')){
+            const id = e.target.dataset.id;
+            if (!confirm('Delete student '+id+'?')) return;
+            const res = await fetch('/api/master/students/'+id, { method:'DELETE' });
+            if (res.ok) loadStudents();
+          }
         });
 
         // initial load
-        loadUsers(); loadItems();
+        loadUsers(); loadItems(); loadCustomers(); loadStudents();
       </script>
     </body>
     </html>

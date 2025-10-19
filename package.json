@@ -24,10 +24,10 @@
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.15.2",
     "readline-sync": "^1.4.10",
-    "serverless-http": "^3.2.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
-  }
+  },
+  "engines": { "node": ">=18" }
 }

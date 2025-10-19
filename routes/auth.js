@@ -333,4 +333,53 @@ router.put('/api/users/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ==================== DELETE USER (Admin only) ====================
+router.delete('/api/users/:id', requireAuth, async (req, res) => {
+  try {
+    if (!mysql.mysqlEnabled()) {
+      return res.status(503).json(
+        errorResponse('Service unavailable', 'Database is not configured')
+      );
+    }
+
+    const currentUser = await mysql.getUserById(req.user.id);
+    if (!currentUser || currentUser.role !== 'admin') {
+      return res.status(403).json(
+        errorResponse('Forbidden', 'Only administrators can delete users')
+      );
+    }
+
+    // Validate ID
+    const idCheck = validateId(req.params.id);
+    if (!idCheck.valid) {
+      return res.status(400).json(validationErrorResponse(idCheck.error));
+    }
+
+    // Delete user
+    const deletedUser = await mysql.deleteUser(idCheck.value);
+    
+    if (!deletedUser) {
+      return res.status(404).json(
+        errorResponse('Not found', 'User not found')
+      );
+    }
+
+    return res.json(
+      successResponse(
+        {},
+        'User deleted successfully'
+      )
+    );
+  } catch (err) {
+    console.error('Delete user error:', err.message);
+    return res.status(500).json(
+      errorResponse(
+        'Internal server error',
+        'Failed to delete user',
+        { details: process.env.NODE_ENV === 'development' ? err.message : undefined }
+      )
+    );
+  }
+});
+
 module.exports = router;

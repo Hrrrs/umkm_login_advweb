@@ -60,7 +60,7 @@ router.get('/students', requireAuth, async (req, res) => {
 // New student form
 router.get('/students/new', requireAuth, async (req, res) => {
   try {
-    const user = await mysql.getUserById(req.session.userId);
+    const user = await mysql.getUserById(req.user.id);
     if (!user) return res.redirect('/?error=' + encodeURIComponent('Session expired'));
     const form = (error, item) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${item ? 'Edit Student' : 'New Student'} - PKM</title>
