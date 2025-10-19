@@ -22,12 +22,12 @@
     "cookie-parser": "^1.4.6",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "serverless-http": "^3.2.0",
     "mysql2": "^3.15.2",
     "readline-sync": "^1.4.10",
+    "serverless-http": "^3.2.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "nodemon": "^3.1.10"
   }
 }
