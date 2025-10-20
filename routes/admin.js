@@ -18,11 +18,21 @@ router.get('/admin', requireAuth, async (req, res) => {
         table{border-collapse:collapse;width:100%}
         th,td{border:1px solid #ddd;padding:8px}
         th{background:#f4f4f4}
+        .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+        .btn{background:#6b7280;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;border:none;cursor:pointer}
+        .btn:hover{background:#4b5563}
       </style>
     </head>
     <body>
-      <h1>Admin Panel</h1>
-      <p>Logged in as <strong>${user.username}</strong> — <a href="/logout">Sign out</a></p>
+      <div class="topbar">
+        <div>
+          <h1 style="margin:0">Admin Panel</h1>
+          <p style="margin:4px 0 0 0">Logged in as <strong>${user.username}</strong> — <a href="/logout">Sign out</a></p>
+        </div>
+        <div>
+          <a class="btn" href="/menu">Back to Menu</a>
+        </div>
+      </div>
 
       <section id="users">
         <h2>Users</h2>
