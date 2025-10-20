@@ -113,7 +113,7 @@ app.get('/', (req, res) => {
     <p class="note">Default (prototype): <strong>admin</strong> / <strong>admin</strong></p>
     ${errorHtml}
     <form method="post" action="/login">
-      <label>Usernametes
+      <label>Username
         <input name="username" autocomplete="username" required autofocus />
       </label>
       <label>Password
