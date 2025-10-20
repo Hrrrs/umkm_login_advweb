@@ -97,7 +97,7 @@ app.get('/', (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PKM Prototype - Login</title>
   <style>
-    body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:48px auto;padding:0 16px;color:#1f2937}
+    body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:48px auto;padding:0 16px;color:#dbeafe}
     h1{font-size:24px;margin-bottom:6px}
     p.note{color:#6b7280;margin-bottom:16px}
     .error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:10px 12px;border-radius:8px;margin-bottom:12px}
